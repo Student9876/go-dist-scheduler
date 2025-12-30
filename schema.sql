@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS tasks (
+    id UUID PRIMARY KEY, 
+    type VARCHAR(255) NOT NULL, 
+    payload BYTEA NOT NULL,             -- BYTEA is Postgres's version of []byte
+    status VARCHAR(50) NOT NULL,
+    execute_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL
+    );
+
+CREATE INDEX idx_status ON tasks(status);

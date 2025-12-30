@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  # 1. postgres service
+  postgres:
+    image: postgres:15-alpine 
+    restart: always  # if it crashes, restart it
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: scheduler_db
+    ports:
+      - "5432:5432"  # map laptop port 5432 -> container port 5432
+  
+  # 2. redis service
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379" # map laptop port 6379 -> container port 6379
+  
+  # 3. api service
+  api:
+    build: .
+    # command: go run cmd/api/main.go
+    ports:
+      - "8080:8080" # map laptop port 8080 -> container port 8080
+    environment:
+      - DB_URL=postgres://user:password@postgres:5432/scheduler_db
+      - REDIS_ADDR=redis:6379
+    volumes:
+      - .:/app
+    depends_on:
+      - postgres
+      - redis
