@@ -66,3 +66,57 @@ curl -X POST http://localhost:8080/schedule \
     "payload": { "subject": "Welcome Email" },
     "execute_at": "'$(date -u -d '+10 seconds' +%Y-%m-%dT%H:%M:%SZ)'"
   }'
+```
+
+### 2. Schedule a Recurring Task
+To schedule a task that repeats at a fixed interval, use the `cron` syntax.
+
+**Endpoint:** `POST http://localhost:8080/schedule`
+
+**Example (Every minute):**
+```bash
+curl -X POST http://localhost:8080/schedule \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "report",
+    "payload": { "format": "pdf" },
+    "cron": "* * * * *"
+  }'
+```
+
+## 3. Scaling Workers
+
+The system supports horizontal scaling to handle high load. Run the following command to spin up 5 concurrent workers:
+
+```bash
+docker-compose up -d --scale worker=5
+```
+
+## 4. Stress Testing (Load Generation)
+
+You can use the following script to generate multiple tasks simultaneously and test the distributed workers. Copy and run this in your terminal:
+
+```bash
+for i in {1..10}; do
+  TIMESTAMP=$(date -u -d '+10 seconds' +%Y-%m-%dT%H:%M:%SZ)
+  
+  curl -X POST http://localhost:8080/schedule \
+    -H "Content-Type: application/json" \
+    -d '{"type":"email","payload":{"subject":"Load Test '"$i"'"},"execute_at":"'"$TIMESTAMP"'"}'
+    
+  echo " Sent Task $i"
+done
+```
+
+## Database Schema
+
+The `tasks` table in PostgreSQL tracks the lifecycle of every job.
+
+| Column      | Type      | Description                           |
+|-------------|-----------|---------------------------------------|
+| id          | UUID      | Unique Task ID                        |
+| type        | VARCHAR   | Task category                         |
+| status      | VARCHAR   | PENDING, RUNNING, COMPLETED, FAILED   |
+| payload     | BYTEA     | Custom task data                      |
+| execute_at  | TIMESTAMP | Scheduled execution time              |
+| created_at  | TIMESTAMP | Task creation time                    |
