@@ -13,7 +13,11 @@ COPY . .
 
 # build the application
 # we name the output binary main
-RUN go build -o main ./cmd/api/main.go
+RUN go build -o api_bin ./cmd/api/main.go
+# build scheduler
+RUN go build -o scheduler_bin ./cmd/scheduler/main.go
+# build worker 
+RUN go build -o worker_bin ./cmd/worker/main.go
 
 # 2. The runner (runs the code)
 FROM alpine:latest
@@ -22,7 +26,8 @@ FROM alpine:latest
 WORKDIR /root/
 
 # copy the binary from the builder stage
-COPY --from=builder /app/main .
+COPY --from=builder /app/api_bin .
+COPY --from=builder /app/scheduler_bin .
+COPY --from=builder /app/worker_bin .
 
 # The command to run when the container starts
-CMD ["./main"]

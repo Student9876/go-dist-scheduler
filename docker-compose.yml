@@ -4,27 +4,48 @@ services:
   # 1. postgres service
   postgres:
     image: postgres:15-alpine 
-    restart: always  # if it crashes, restart it
+    restart: always 
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: scheduler_db
     ports:
-      - "5432:5432"  # map laptop port 5432 -> container port 5432
+      - "5432:5432"
+    # --- FIX START: Connect the volume ---
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # --- FIX END ---
   
   # 2. redis service
   redis:
     image: redis:7-alpine
     restart: always
     ports:
-      - "6379:6379" # map laptop port 6379 -> container port 6379
+      - "6379:6379" 
+    command: redis-server --appendonly yes 
+    volumes:
+      - redis_data:/data
   
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: always
+    ports:
+      - "5672:5672" 
+      - "15672:15672" 
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    # --- FIX START: Connect the volume ---
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    # --- FIX END ---
+
   # 3. api service
   api:
     build: .
-    # command: go run cmd/api/main.go
+    command: ./api_bin
     ports:
-      - "8080:8080" # map laptop port 8080 -> container port 8080
+      - "8080:8080" 
     environment:
       - DB_URL=postgres://user:password@postgres:5432/scheduler_db
       - REDIS_ADDR=redis:6379
@@ -33,3 +54,35 @@ services:
     depends_on:
       - postgres
       - redis
+  
+  # 4. scheduler service
+  scheduler:
+    build: .
+    command: ./scheduler_bin
+    environment:
+      - REDIS_ADDR=redis:6379
+      - RABBITMQ_URL=amqp://user:password@rabbitmq:5672/
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - rabbitmq
+
+  # 5. worker service
+  worker:
+    build: .
+    command: ./worker_bin
+    environment:
+      - DB_URL=postgres://user:password@postgres:5432/scheduler_db
+      - RABBITMQ_URL=amqp://user:password@rabbitmq:5672/
+    volumes:
+      - .:/app
+    depends_on:
+      - postgres
+      - rabbitmq
+
+# Define the volumes (This was correct, keep it)
+volumes:
+  rabbitmq_data:
+  postgres_data:
+  redis_data:

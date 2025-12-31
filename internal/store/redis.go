@@ -30,11 +30,11 @@ func (r *RedisScheduleStore) AddToSchedule(ctx context.Context, taskID string, e
 	return nil
 }
 
+// PullDueTasks fetches tasks that are due and removes them
 func (r *RedisScheduleStore) PullDueTasks(ctx context.Context) ([]string, error) {
 	now := float64(time.Now().Unix())
 
-	// fetch tasks with score from -infinity to NOW
-
+	// 1. Fetch tasks
 	tasks, err := r.client.ZRangeByScore(ctx, "task_schedule", &redis.ZRangeBy{
 		Min: "-inf",
 		Max: fmt.Sprintf("%f", now),
@@ -48,11 +48,19 @@ func (r *RedisScheduleStore) PullDueTasks(ctx context.Context) ([]string, error)
 		return []string{}, nil
 	}
 
-	// remove them from the set so that other pollers don't grab them
-	// This contains race condition
-	err = r.client.ZRem(ctx, "tasks_schedule", tasks).Err()
+	// --- FIX START: Convert []string to []interface{} ---
+	// Redis needs generic interfaces to delete multiple items at once
+	members := make([]interface{}, len(tasks))
+	for i, v := range tasks {
+		members[i] = v
+	}
+	// --- FIX END ---
+
+	// 2. Remove them (Pass the converted slice)
+	err = r.client.ZRem(ctx, "task_schedule", members...).Err()
 	if err != nil {
 		return nil, fmt.Errorf("failed to remove tasks from schedule: %w", err)
 	}
+
 	return tasks, nil
 }

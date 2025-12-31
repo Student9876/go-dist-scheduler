@@ -1,0 +1,12 @@
+# Binaries
+*_bin
+*.exe
+*.test
+
+# OS / IDE specific
+.DS_Store
+.idea/
+.vscode/
+
+# Environmental variables (safety first!)
+.env
