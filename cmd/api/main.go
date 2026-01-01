@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -41,7 +42,35 @@ func main() {
 	// Initialize Gin
 	r := gin.Default()
 
+	// Enable CORS
+	// Allows your React app running on localhost to hit this API
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+	r.Use(cors.New(config))
+
 	// Define routes
+
+	// --- NEW: Endpoint 2: Get Analytics ---
+	r.GET("/stats", func(c *gin.Context) {
+		var stats struct {
+			Pending   int `json:"pending"`
+			Running   int `json:"running"`
+			Completed int `json:"completed"`
+			Failed    int `json:"failed"`
+			Total     int `json:"total"`
+		}
+
+		// Run simple count queries
+		// Note: In a huge production app, you'd maintain counters in Redis instead of counting rows.
+		ctx := context.Background()
+		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM tasks WHERE status='pending'").Scan(&stats.Pending)
+		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM tasks WHERE status='running'").Scan(&stats.Running)
+		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM tasks WHERE status='completed'").Scan(&stats.Completed)
+		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM tasks WHERE status='failed'").Scan(&stats.Failed)
+		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM tasks").Scan(&stats.Total)
+
+		c.JSON(http.StatusOK, stats)
+	})
 
 	r.POST("/schedule", func(c *gin.Context) {
 		// A. Parse and validate request
